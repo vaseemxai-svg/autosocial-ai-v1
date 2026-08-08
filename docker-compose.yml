@@ -1,0 +1,21 @@
+services:
+  autosocial-ai:
+    build: .
+    container_name: autosocial-ai
+    restart: unless-stopped
+    # Port publishing. If your Docker host has broken iptables (some sandboxes),
+    # swap this for `network_mode: host` and remove the ports mapping.
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    env_file:
+      - .env
+    volumes:
+      # Service account JSON (never baked into the image)
+      - ./config/service_account.json:/app/config/service_account.json:ro
+      # Persistent local output (memes + logs survive container rebuilds)
+      - ./output:/app/output
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
