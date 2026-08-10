@@ -143,6 +143,13 @@ class LocalFirstDriveStorage(StorageInterface):
                 "Google Cloud console, download its JSON key, and point the "
                 "env var at it."
             )
+        if not os.path.isfile(sa_path):
+            raise RuntimeError(
+                "GOOGLE_SERVICE_ACCOUNT_JSON_PATH does not point at a file: "
+                f"{sa_path!r} is a directory. A broken bind mount can leave a "
+                "dangling directory at this path — remove it and ensure the "
+                "env var points at the actual JSON key file."
+            )
         creds = service_account.Credentials.from_service_account_file(
             sa_path, scopes=self._DRIVE_SCOPES
         )

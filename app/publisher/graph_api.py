@@ -53,6 +53,25 @@ class InstagramGraphAPIClient:
             raise InstagramGraphAPIError(f"Failed to publish container: {data}")
         return data["id"]
 
+    def verify_credentials(self) -> dict:
+        """Verify the access token + account ID WITHOUT publishing anything.
+
+        Calls GET /{ig-user-id}?fields=id,username,media_count on the official
+        Graph API. A 200 response means the credentials are valid and the
+        account is reachable; no media container or post is created. Used by
+        the pre-publish check so a misconfigured .env fails loudly before any
+        container is created (containers expire in 24h if never published).
+        """
+        resp = requests.get(
+            f"{GRAPH_API_BASE}/{self.ig_account_id}",
+            params={"fields": "id,username,media_count", "access_token": self.access_token},
+            timeout=30,
+        )
+        data = resp.json()
+        if "id" not in data:
+            raise InstagramGraphAPIError(f"Credential verification failed: {data}")
+        return data
+
     def get_insights(self, media_id: str) -> dict:
         resp = requests.get(
             f"{GRAPH_API_BASE}/{media_id}/insights",

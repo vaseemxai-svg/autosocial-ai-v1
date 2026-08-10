@@ -35,6 +35,26 @@ def generate():
     return redirect(url_for("index"))
 
 
+@app.route("/verify-credentials", methods=["POST"])
+def verify_credentials():
+    """Day-1 pre-publish check: verifies IG credentials via the official
+    Graph API WITHOUT creating any media container or post."""
+    if config.mock_mode:
+        return jsonify({"success": True, "mode": "mock",
+                        "message": "Mock mode — no real credentials configured yet"})
+    try:
+        config.require_live_credentials()
+        from app.publisher.graph_api import InstagramGraphAPIClient, InstagramGraphAPIError
+        client = InstagramGraphAPIClient(
+            ig_account_id=config.active_account.ig_account_id,
+            access_token=config.active_account.ig_access_token,
+        )
+        account = client.verify_credentials()
+        return jsonify({"success": True, "account": account})
+    except InstagramGraphAPIError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 401
+
+
 @app.route("/post-now", methods=["POST"])
 def post_now():
     """The ONLY route in this app that results in a real Instagram post."""

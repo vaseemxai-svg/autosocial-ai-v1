@@ -2,6 +2,26 @@
 
 All notable changes to AutoSocial AI are documented in this file.
 
+## [1.0.3] — Day 1: Instagram publishing readiness + P0 fixes
+
+### Added
+- `InstagramGraphAPIClient.verify_credentials()`: official `GET /{ig-user-id}`
+  pre-publish auth check — verifies token + account ID **without creating any
+  media container or post**.
+- `POST /verify-credentials` web route: runs the pre-publish check from the UI.
+
+### Fixed
+- `_build_drive_service()` now rejects a **directory** at the service-account
+  path with a clear RuntimeError (a broken bind mount used to leak a raw
+  `IsADirectoryError`).
+- Test harness attaches its logging capture handler **before** any app import
+  and sets root level to DEBUG — matches how the production server configures
+  the root logger via `basicConfig`.
+
+### Tested (inside Docker)
+- P0 suite 7/7 pass; Day-1 suite 5/5 pass (mock-only, zero live Instagram
+  calls, zero media containers created).
+
 ## [1.0.2] — 2026-08-08 — Developer (Manus)
 
 ### Added
