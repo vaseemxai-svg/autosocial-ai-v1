@@ -2,6 +2,14 @@
 
 All notable changes to AutoSocial AI are documented in this file.
 
+## v1.0.4 — CTO Audit Blockers 1-5 (this version)
+- Blocker 1: Media container readiness polling in graph_api.py (_wait_for_container_ready: 3s interval, 30s hard timeout, explicit ERROR/EXPIRED/unreadable handling; /media_publish never called before FINISHED)
+- Blocker 2: ENABLE_LIVE_INSTAGRAM_PUBLISH env flag in config.py, default false, independent of MOCK_MODE
+- Blocker 3: image_validator.py — public reachability, HTTP success, JPEG/PNG only, <8MB, no download/re-upload
+- Blocker 4: token validation — require_live_credentials + read-only verify_credentials() before any container creation
+- Blocker 5: rate_limiter.py — local rolling 24h counter, 15-post safety limit, persisted JSON
+- Tests: tests/p2_blockers_suite.py — 12 scenarios covering every blocker
+
 ## [1.0.3] — Day 1: Instagram publishing readiness + P0 fixes
 
 ### Added

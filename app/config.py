@@ -34,6 +34,15 @@ class AccountConfig:
 class Config:
     mock_mode: bool = field(default_factory=lambda: _bool("MOCK_MODE", True))
 
+    # Blocker 2: hard live-publish safety gate. MUST default to False — live
+    # Instagram publishing is only allowed when the operator explicitly sets
+    # ENABLE_LIVE_INSTAGRAM_PUBLISH=true in .env (or the docker-compose env).
+    # This is a separate, harder gate than MOCK_MODE: even with mock_mode
+    # false, live API calls stay disabled until this flag is on.
+    enable_live_instagram_publish: bool = field(
+        default_factory=lambda: _bool("ENABLE_LIVE_INSTAGRAM_PUBLISH", False)
+    )
+
     # Local folders (centralized here — nothing else hardcodes a path)
     local_output_dir: Path = field(default_factory=lambda: BASE_DIR / "output")
     local_memes_dir: Path = field(default_factory=lambda: BASE_DIR / "output" / "memes")
