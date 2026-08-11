@@ -5,6 +5,8 @@ config/service_account.json
 # JSON (e.g. mock_data/sample_trends.json) stays committed so the pipeline
 # always has something to read.
 secrets/*.json
+*.token.json
+*credentials*.json
 output/logs/publish_log.json
 output/logs/mock_uploads.json
 # Local outputs (Drive is the source of truth)
