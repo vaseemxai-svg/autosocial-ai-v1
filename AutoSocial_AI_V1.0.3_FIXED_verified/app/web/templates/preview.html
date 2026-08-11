@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AutoSocial AI — Review &amp; Post</title>
+<style>
+  :root {
+    --ink: #17211b;
+    --paper: #f6f4ee;
+    --accent: #2f6f4f;
+    --accent-dim: #cfe3d6;
+    --border: #d8d4c8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 40px 20px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .card img { width: 100%; display: block; background: #eee; }
+  .card-body { padding: 18px 20px 20px; }
+  .caption { white-space: pre-wrap; font-size: 15px; line-height: 1.5; margin: 0 0 12px; }
+  .hashtags { color: var(--accent); font-size: 13px; word-break: break-word; }
+  .actions { display: flex; gap: 10px; margin-top: 22px; }
+  button, .btn {
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 13px 18px;
+    border: none;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+  }
+  .post-btn { background: var(--accent); color: white; }
+  .post-btn:disabled { background: #a9c4b6; cursor: not-allowed; }
+  .regen-btn { background: white; border: 1px solid var(--border); color: var(--ink); }
+  #status { margin-top: 14px; font-size: 14px; }
+  .ok { color: var(--accent); }
+  .err { color: #b3261e; }
+  .empty { padding: 40px 0; text-align: center; color: #888; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">{{ 'Mock mode' if mock_mode else 'Live — Instagram Graph API' }}</span>
+  <h1>@laggaye_broo</h1>
+  <p class="sub">Queued items: {{ queue_len }} — nothing posts until you press Post Now.</p>
+
+  {% if content %}
+  <div class="card">
+    <img src="{{ url_for('serve_image', filename=content.image_path.split('/')[-1]) }}" alt="Generated meme">
+    <div class="card-body">
+      <p class="caption">{{ content.caption }}</p>
+      <p class="hashtags">{{ content.hashtags | join(' ') }}</p>
+    </div>
+  </div>
+
+  <div class="actions">
+    <form method="post" action="{{ url_for('generate') }}" style="flex:1">
+      <button type="submit" class="regen-btn" style="width:100%">Regenerate</button>
+    </form>
+    <button id="postBtn" class="post-btn" style="flex:1" onclick="postNow()">Post Now</button>
+  </div>
+  <div id="status"></div>
+  {% else %}
+  <div class="empty">Nothing generated yet.</div>
+  {% endif %}
+</div>
+
+<script>
+async function postNow() {
+  const btn = document.getElementById('postBtn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  btn.textContent = 'Posting…';
+  try {
+    const res = await fetch("{{ url_for('post_now') }}", { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      status.innerHTML = '<span class="ok">Posted. Instagram ID: ' + data.instagram_post_id + '</span>';
+      btn.textContent = 'Posted ✓';
+    } else {
+      status.innerHTML = '<span class="err">Failed: ' + data.error + '</span>';
+      btn.disabled = false;
+      btn.textContent = 'Post Now';
+    }
+  } catch (e) {
+    status.innerHTML = '<span class="err">Request failed: ' + e + '</span>';
+    btn.disabled = false;
+    btn.textContent = 'Post Now';
+  }
+}
+</script>
+</body>
+</html>
