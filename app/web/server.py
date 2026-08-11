@@ -1,6 +1,8 @@
 import logging
 
-from flask import Flask, jsonify, redirect, render_template, send_file, url_for
+import os
+
+from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
 from app.config import config
 from app.publisher.publisher import GraphAPIPublisher
@@ -57,7 +59,18 @@ def verify_credentials():
 
 @app.route("/post-now", methods=["POST"])
 def post_now():
-    """The ONLY route in this app that results in a real Instagram post."""
+    """The ONLY route in this app that results in a real Instagram post.
+
+    Protected by a minimal shared secret: if WEB_API_SECRET is set (even in
+    .env), requests MUST carry header `Authorization: Bearer <secret>`. No
+    secret configured -> localhost-only behavior preserved.
+    """
+    secret = os.getenv("WEB_API_SECRET", "").strip()
+    if secret:
+        auth_header = request.headers.get("Authorization", "").strip()
+        if not auth_header.startswith("Bearer ") or auth_header[7:] != secret:
+            logger.warning("Unauthorized /post-now attempt — missing or wrong WEB_API_SECRET")
+            return jsonify({"success": False, "error": "Unauthorized: missing or invalid Authorization header"}), 401
     if not scheduler.queue:
         return jsonify({"success": False, "error": "Nothing queued to post"}), 400
     content = scheduler.queue[-1]

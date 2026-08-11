@@ -1,6 +1,7 @@
 """P1 Day-1 suite — Instagram publishing readiness (no live publishing).
 Runs INSIDE Docker. MOCK_MODE only; never creates an IG media container."""
 import json
+import os
 import sys
 import urllib.request
 
@@ -28,6 +29,9 @@ def t_mock_publish():
     gen = urllib.request.Request("http://localhost:8000/generate", method="POST")
     urllib.request.urlopen(gen, timeout=15).read()
     req = urllib.request.Request("http://localhost:8000/post-now", method="POST")
+    secret = os.getenv("WEB_API_SECRET", "").strip()
+    if secret:
+        req.add_header("Authorization", f"Bearer {secret}")
     resp = urllib.request.urlopen(req, timeout=10)
     data = json.loads(resp.read())
     assert data["success"] is True

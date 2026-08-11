@@ -2,6 +2,30 @@
 
 All notable changes to AutoSocial AI are documented in this file.
 
+## v1.0.5 — Pre-production CTO hardening (4 required actions)
+
+### Added
+- **WEB_API_SECRET auth gate on /post-now** (`app/web/server.py`): when
+  `WEB_API_SECRET` is set (even in `.env`), every `POST /post-now` must carry
+  `Authorization: Bearer <secret>` — 401 otherwise. An empty value preserves
+  the previous localhost-only behaviour, so local development is unchanged.
+- `.env.example` documents `WEB_API_SECRET` (with `openssl rand -hex 24`
+  guidance) and ships with an empty default.
+- `tests/auth_gate_check.py` — one-off functional check: no-header rejected,
+  wrong secret rejected, correct secret accepted (all PASS, 3/3).
+
+### Fixed
+- `.gitignore`: blanket `*.json` exclusion replaced with specific sensitive
+  paths only (`config/service_account.json`, `secrets/*.json`, log files).
+  Legitimate pipeline JSON (e.g. `mock_data/sample_trends.json`) is now
+  committed so the trend pipeline always has data to read.
+- `mock_data/sample_trends.json` committed to the repo.
+
+### Verified (inside Docker, raw output)
+- P0 mock suite **7/7 pass**; P1 Day-1 suite **5/5 pass** (mock-only, zero
+  live Instagram posts).
+- Auth gate: no-header 401, wrong-secret 401, correct-secret 200 — all PASS.
+
 ## v1.0.4 — CTO Audit Blockers 1-5 (this version)
 - Blocker 1: Media container readiness polling in graph_api.py (_wait_for_container_ready: 3s interval, 30s hard timeout, explicit ERROR/EXPIRED/unreadable handling; /media_publish never called before FINISHED)
 - Blocker 2: ENABLE_LIVE_INSTAGRAM_PUBLISH env flag in config.py, default false, independent of MOCK_MODE
