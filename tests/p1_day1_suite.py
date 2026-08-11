@@ -5,6 +5,8 @@ import os
 import sys
 import urllib.request
 
+from test_helpers import authed_request
+
 sys.path.insert(0, "/app")
 
 results = []
@@ -26,13 +28,8 @@ def check(name):
 @check("P1-1 Mock publish flow via /post-now")
 def t_mock_publish():
     # /post-now needs a queued item; /generate creates one on demand
-    gen = urllib.request.Request("http://localhost:8000/generate", method="POST")
-    urllib.request.urlopen(gen, timeout=15).read()
-    req = urllib.request.Request("http://localhost:8000/post-now", method="POST")
-    secret = os.getenv("WEB_API_SECRET", "").strip()
-    if secret:
-        req.add_header("Authorization", f"Bearer {secret}")
-    resp = urllib.request.urlopen(req, timeout=10)
+    authed_request("http://localhost:8000/generate", timeout=15).read()
+    resp = authed_request("http://localhost:8000/post-now", timeout=10)
     data = json.loads(resp.read())
     assert data["success"] is True
     assert data["instagram_post_id"].startswith("mock_")

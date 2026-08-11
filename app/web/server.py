@@ -16,6 +16,34 @@ scheduler = GenerationScheduler()
 publisher = GraphAPIPublisher()
 
 
+# ---------------------------------------------------------------------------
+# Reusable auth gate — ONE helper, ONE source of truth (config.web_api_secret)
+# ---------------------------------------------------------------------------
+def check_authorization():
+    """Shared-secret auth check used by BOTH /post-now and /generate.
+
+    - Reads the secret from `config.web_api_secret` (the single centralized
+      place that reads the WEB_API_SECRET env var). NEVER reads os.environ
+      directly.
+    - No secret configured -> localhost-only behaviour (unchanged from v1.0.4).
+    - Secret configured -> caller MUST send `Authorization: Bearer <secret>`.
+    - Returns the JSON 401 response if unauthorized, None otherwise.
+    """
+    secret = config.web_api_secret
+    if not secret:
+        return None
+    auth_header = request.headers.get("Authorization", "").strip()
+    if not auth_header.startswith("Bearer ") or auth_header[7:] != secret:
+        logger.warning("Unauthorized attempt — missing or wrong WEB_API_SECRET")
+        return jsonify({"success": False, "error": "Unauthorized: missing or invalid Authorization header"}), 401
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Flask routes
+# ---------------------------------------------------------------------------
+
+
 @app.route("/")
 def index():
     # Generate one item on demand if the queue is empty, so the UI is never
@@ -33,6 +61,13 @@ def serve_image(filename):
 
 @app.route("/generate", methods=["POST"])
 def generate():
+    """On-demand content generation — same auth gate as /post-now, because an
+    unauthenticated caller could otherwise flood generation (and any future
+    Drive uploads). Protected via the same `check_authorization()` helper —
+    ONE helper, ONE source of truth."""
+    unauthorized = check_authorization()
+    if unauthorized is not None:
+        return unauthorized
     scheduler.run_once()
     return redirect(url_for("index"))
 
@@ -61,16 +96,12 @@ def verify_credentials():
 def post_now():
     """The ONLY route in this app that results in a real Instagram post.
 
-    Protected by a minimal shared secret: if WEB_API_SECRET is set (even in
-    .env), requests MUST carry header `Authorization: Bearer <secret>`. No
-    secret configured -> localhost-only behavior preserved.
+    Protected by the shared WEB_API_SECRET via `check_authorization()`.
+    No secret configured -> localhost-only behavior preserved.
     """
-    secret = os.getenv("WEB_API_SECRET", "").strip()
-    if secret:
-        auth_header = request.headers.get("Authorization", "").strip()
-        if not auth_header.startswith("Bearer ") or auth_header[7:] != secret:
-            logger.warning("Unauthorized /post-now attempt — missing or wrong WEB_API_SECRET")
-            return jsonify({"success": False, "error": "Unauthorized: missing or invalid Authorization header"}), 401
+    unauthorized = check_authorization()
+    if unauthorized is not None:
+        return unauthorized
     if not scheduler.queue:
         return jsonify({"success": False, "error": "Nothing queued to post"}), 400
     content = scheduler.queue[-1]

@@ -66,6 +66,12 @@ class Config:
     web_host: str = field(default_factory=lambda: os.getenv("WEB_HOST", "0.0.0.0"))
     web_port: int = field(default_factory=lambda: int(os.getenv("WEB_PORT", "8000")))
 
+    # Web API secret — single, centralized place to read WEB_API_SECRET.
+    # server.py reads it via `config.web_api_secret` ONLY (never os.getenv
+    # directly), so there is exactly one source of truth for the token and no
+    # duplicate authentication system.
+    web_api_secret: str = field(default_factory=lambda: os.getenv("WEB_API_SECRET", "").strip())
+
     # V1 = single account. V2 will populate this list from a JSON/YAML block
     # instead of flat env vars — nothing outside config.py needs to know that
     # when it happens.

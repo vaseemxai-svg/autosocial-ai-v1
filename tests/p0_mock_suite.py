@@ -17,6 +17,8 @@ import io
 import logging
 import os
 import sys
+
+from test_helpers import authed_request  # noqa: F401 (shared auth helper)
 import urllib.request
 import urllib.error
 
@@ -68,12 +70,7 @@ def t_web_ui():
 # ---------------------------------------------------------------------------
 @check("3. /post-now mock")
 def t_post_now():
-    req = urllib.request.Request("http://localhost:8000/post-now", method="POST")
-    # If the server enforces WEB_API_SECRET, the test must present it.
-    secret = os.getenv("WEB_API_SECRET", "").strip()
-    if secret:
-        req.add_header("Authorization", f"Bearer {secret}")
-    resp = urllib.request.urlopen(req, timeout=10)
+    resp = authed_request("http://localhost:8000/post-now", method="POST", timeout=10)
     data = resp.read().decode()
     assert resp.status == 200, f"status {resp.status}"
     assert '"success": true' in data or '"success":true' in data, data
