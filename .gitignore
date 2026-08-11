@@ -1,7 +1,9 @@
 # Secrets — never commit
 .env
 config/service_account.json
-*.json
+secrets/*.json
+*.token.json
+*credentials*.json
 # Local outputs (Drive is the source of truth)
 output/
 # Python
