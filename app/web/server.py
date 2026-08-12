@@ -98,6 +98,11 @@ def post_now():
 
     Protected by the shared WEB_API_SECRET via `check_authorization()`.
     No secret configured -> localhost-only behavior preserved.
+
+    Idempotency guard: after a successful publish the queue item is removed
+    immediately, so a second click on "Post Now" cannot publish the same
+    content again. Only SUCCESS responses remove the item; failures leave it
+    in the queue for retry.
     """
     unauthorized = check_authorization()
     if unauthorized is not None:
@@ -106,6 +111,15 @@ def post_now():
         return jsonify({"success": False, "error": "Nothing queued to post"}), 400
     content = scheduler.queue[-1]
     result = publisher.publish_now(content)
+    if result.success:
+        # Idempotency guard — remove the item right after a real publish so
+        # no double click can re-publish the same content.
+        try:
+            scheduler.queue.remove(content)
+            logger.info("Queue item removed after successful publish — "
+                        "same item cannot be posted again.")
+        except ValueError:
+            pass  # already removed; idempotent
     return jsonify(
         {"success": result.success, "instagram_post_id": result.instagram_post_id, "error": result.error}
     )

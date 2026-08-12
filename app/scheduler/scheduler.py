@@ -42,8 +42,11 @@ class GenerationScheduler(SchedulerInterface):
             return None
         try:
             content = self.storage.upload(content)
-        except NotImplementedError:
-            logger.info("Drive upload not configured yet — content stays queued locally")
+        except (NotImplementedError, RuntimeError, OSError):
+            # Drive not configured yet (no service-account JSON) or temporarily
+            # unreachable — content stays queued locally. Local-first design:
+            # generation and preview must NEVER depend on Drive being up.
+            logger.info("Drive upload not configured/available — content stays queued locally")
         self.queue.append(content)
         logger.info("Queued new content for review: %s", content.topic.text)
         return content
