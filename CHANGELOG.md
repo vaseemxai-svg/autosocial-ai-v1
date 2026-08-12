@@ -26,6 +26,19 @@ All notable changes to AutoSocial AI are documented in this file.
   live Instagram posts).
 - Auth gate: no-header 401, wrong-secret 401, correct-secret 200 — all PASS.
 
+## v1.0.5.1 — CTO security gap fix (Blocker 6)
+
+### Added
+- **Blocker 6**: when `ENABLE_LIVE_INSTAGRAM_PUBLISH=true`, live publishing
+  now ALSO requires a non-empty `WEB_API_SECRET` (read from the single
+  central place `config.web_api_secret`). If the secret is missing, publish
+  is refused with a clear error BEFORE any Meta API call or credential
+  verification. This closes the gap where a forgotten `WEB_API_SECRET`
+  silently left `/post-now` unauthenticated even in live mode.
+- `tests/p2_blockers_suite.py` — two new scenarios: B6-13 (live ON + no
+  secret → blocked, zero Meta calls) and B6-14 (live ON + secret → proceeds
+  to read-only credential verification).
+
 ## v1.0.4 — CTO Audit Blockers 1-5 (this version)
 - Blocker 1: Media container readiness polling in graph_api.py (_wait_for_container_ready: 3s interval, 30s hard timeout, explicit ERROR/EXPIRED/unreadable handling; /media_publish never called before FINISHED)
 - Blocker 2: ENABLE_LIVE_INSTAGRAM_PUBLISH env flag in config.py, default false, independent of MOCK_MODE

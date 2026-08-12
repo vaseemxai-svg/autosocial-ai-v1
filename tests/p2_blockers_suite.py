@@ -232,6 +232,57 @@ def t6_gate_closed():
 
 
 # ---------------------------------------------------------------------------
+# Blocker 6 — live mode without WEB_API_SECRET -> blocked (security gap fix)
+# ---------------------------------------------------------------------------
+
+@check("B6-13 Live mode ON but WEB_API_SECRET unset -> blocked")
+def t13_live_no_secret():
+    """If ENABLE_LIVE_INSTAGRAM_PUBLISH=true but WEB_API_SECRET is empty,
+    the /post-now auth gate would be silently open — the publisher must
+    refuse live publishing BEFORE any Meta API call."""
+    with mock.patch.object(config, "enable_live_instagram_publish", True), \
+         mock.patch.object(config, "mock_mode", False), \
+         mock.patch.object(config, "web_api_secret", ""), \
+         mock.patch("app.publisher.publisher.InstagramGraphAPIClient") as Client:
+        publisher = GraphAPIPublisher()
+        content = mock.MagicMock()
+        content.caption = "x"
+        content.hashtags = []
+        content.drive_file_ids = {"public_url": "https://example.com/m.jpg"}
+        result = publisher.publish_now(content)
+    assert result.success is False, "live publish succeeded without WEB_API_SECRET"
+    assert "WEB_API_SECRET" in result.error
+    # verify_credentials() must NOT have been called (no Meta call)
+    Client.return_value.verify_credentials.assert_not_called()
+
+
+@check("B6-14 Live mode ON with WEB_API_SECRET set -> proceeds to credential check")
+def t14_live_with_secret():
+    """With a configured secret, live mode should pass the B6 gate and
+    reach read-only credential verification (mocked to succeed)."""
+    with mock.patch.object(config, "enable_live_instagram_publish", True), \
+         mock.patch.object(config, "mock_mode", False), \
+         mock.patch.object(config, "web_api_secret", "a-real-secret"), \
+         mock.patch.object(config, "require_live_credentials"), \
+         mock.patch("app.publisher.publisher._rate_limiter") as limiter, \
+         mock.patch("app.publisher.publisher.validate_image_url"):
+        limiter.can_publish.return_value = (True, "ok")
+        publisher = GraphAPIPublisher()
+        client = mock.MagicMock()
+        client.verify_credentials.return_value = {"username": "t"}
+        client.publish_image.return_value = "17841400000000000"
+        with mock.patch("app.publisher.publisher.InstagramGraphAPIClient",
+                        return_value=client) as Client:
+            content = mock.MagicMock()
+            content.caption = "x"
+            content.hashtags = []
+            content.drive_file_ids = {"public_url": "https://example.com/m.jpg"}
+            result = publisher.publish_now(content)
+    assert result.success is True
+    Client.assert_called_once()  # reached the client (B6 gate passed)
+
+
+# ---------------------------------------------------------------------------
 # Blocker 3 — image URL validation
 # ---------------------------------------------------------------------------
 

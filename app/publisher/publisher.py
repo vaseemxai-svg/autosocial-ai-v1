@@ -41,6 +41,21 @@ class GraphAPIPublisher(PublisherInterface):
             logger.error(reason)
             return PublishResult(success=False, error=reason)
 
+        # Blocker 6 — WEB_API_SECRET is mandatory in live mode. Without it
+        # the web auth gate on /post-now is silently open, so an unprotected
+        # server could be triggered to post live. Block early — BEFORE any
+        # Meta API call, and BEFORE require_live_credentials().
+        if not config.web_api_secret:
+            reason = (
+                "Live Instagram publishing requires WEB_API_SECRET to be set. "
+                "ENABLE_LIVE_INSTAGRAM_PUBLISH=true but no WEB_API_SECRET is "
+                "configured — refusing to proceed, because the /post-now auth "
+                "gate would be silently open. Set WEB_API_SECRET in .env and "
+                "restart the container."
+            )
+            logger.error(reason)
+            return PublishResult(success=False, error=reason)
+
         # Blocker 4a — credentials must exist before anything else.
         config.require_live_credentials()
 
