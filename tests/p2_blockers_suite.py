@@ -113,13 +113,18 @@ def _mock_requests_with_status_sequence(statuses):
         mock.patch("app.publisher.graph_api.requests.post", side_effect=fake_post)
 
 
-def _run_publish_with(statuses, gate=True, token="valid_token", limit_ts=None):
+def _run_publish_with(statuses, gate=True, token="valid_token", limit_ts=None,
+                        secret="p2-test-secret"):
     """Run the live publish path with mocked network. gate=False opens the
-    ENABLE_LIVE_INSTAGRAM_PUBLISH gate for this run only."""
+    ENABLE_LIVE_INSTAGRAM_PUBLISH gate for this run only.
+    A test secret is always configured: since the Blocker 6 fix, live mode
+    requires WEB_API_SECRET — without it the run would stop at the B6 gate
+    before reaching the gate/polling logic this helper is meant to test."""
     patchers = []
     if gate:
         patchers.append(mock.patch.object(config, "enable_live_instagram_publish", True))
     patchers.append(mock.patch.object(config, "mock_mode", False))
+    patchers.append(mock.patch.object(config, "web_api_secret", secret))
     patchers.append(mock.patch.object(
         config.active_account, "ig_account_id", "ig_account_id"))
     patchers.append(mock.patch.object(
@@ -335,23 +340,24 @@ def t9_too_big():
 def t10_bad_creds():
     with mock.patch.object(config, "enable_live_instagram_publish", True):
         with mock.patch.object(config, "mock_mode", False):
-            with mock.patch.object(
-                config.active_account, "ig_account_id", ""):
+            with mock.patch.object(config, "web_api_secret", "p2-test-secret"):
                 with mock.patch.object(
-                    config.active_account, "ig_access_token", ""):
-                    publisher = GraphAPIPublisher()
-                    content = mock.MagicMock()
-                    content.caption = "x"
-                    content.hashtags = []
-                    content.drive_file_ids = {}
-                    try:
-                        result = publisher.publish_now(content)
-                    except RuntimeError as e:
-                        # require_live_credentials raises loudly — safe failure,
-                        # exactly the design (no API call is made)
-                        assert "not set" in str(e) or "MOCK_MODE" in str(e)
-                        assert len(_call_log) == 0, "live API call made with missing credentials"
-                        return
+                    config.active_account, "ig_account_id", ""):
+                    with mock.patch.object(
+                        config.active_account, "ig_access_token", ""):
+                        publisher = GraphAPIPublisher()
+                        content = mock.MagicMock()
+                        content.caption = "x"
+                        content.hashtags = []
+                        content.drive_file_ids = {}
+                        try:
+                            result = publisher.publish_now(content)
+                        except RuntimeError as e:
+                            # require_live_credentials raises loudly — safe failure,
+                            # exactly the design (no API call is made)
+                            assert "not set" in str(e) or "MOCK_MODE" in str(e)
+                            assert len(_call_log) == 0, "live API call made with missing credentials"
+                            return
     assert result.success is False
     assert "not set" in result.error or "Credentials" in result.error or "MOCK_MODE" in result.error
     assert len(_call_log) == 0, "live API call made with missing credentials"
@@ -372,20 +378,23 @@ def t11_rate_limit():
     allowed, reason = limiter.can_publish(now=now)
     assert allowed is False, f"expected refusal at 15 publishes, got allowed"
     assert "limit" in reason.lower()
-    # Confirm publishing refusal through the full publisher path too:
+    # Confirm publishing refusal through the full publisher path too.
+    # A test secret is configured here as well — the Blocker 6 fix requires
+    # WEB_API_SECRET in live mode before the rate limiter is even reached.
     with mock.patch.object(config, "enable_live_instagram_publish", True):
         with mock.patch.object(config, "mock_mode", False):
-            with mock.patch("app.publisher.publisher._rate_limiter", limiter):
-                with mock.patch("app.config.config.require_live_credentials"):
-                    with mock.patch.object(
-                        InstagramGraphAPIClient, "verify_credentials"):
-                        with mock.patch("app.publisher.publisher.validate_image_url"):
-                            publisher = GraphAPIPublisher()
-                            content = mock.MagicMock()
-                            content.caption = "x"
-                            content.hashtags = []
-                            content.drive_file_ids = {"public_url": "https://example.com/m.jpg"}
-                            result = publisher.publish_now(content)
+            with mock.patch.object(config, "web_api_secret", "p2-test-secret"):
+                with mock.patch("app.publisher.publisher._rate_limiter", limiter):
+                    with mock.patch("app.config.config.require_live_credentials"):
+                        with mock.patch.object(
+                            InstagramGraphAPIClient, "verify_credentials"):
+                            with mock.patch("app.publisher.publisher.validate_image_url"):
+                                publisher = GraphAPIPublisher()
+                                content = mock.MagicMock()
+                                content.caption = "x"
+                                content.hashtags = []
+                                content.drive_file_ids = {"public_url": "https://example.com/m.jpg"}
+                                result = publisher.publish_now(content)
     assert result.success is False, f"expected refusal, got {result}"
     assert "limit" in result.error.lower(), f"expected rate-limit reason, got: {result.error}"
     assert not any("/media" in u or "/media_publish" in u for _, u in _call_log)
